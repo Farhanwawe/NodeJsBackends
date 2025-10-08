@@ -1,0 +1,15 @@
+[
+    {
+      "relation": [
+        "delegate_permission/common.handle_all_urls",
+        "delegate_permission/common.get_login_creds"
+      ],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.wawe.PokerFace",
+        "sha256_cert_fingerprints": [
+          "96:DF:E6:BA:45:99:A2:E1:6B:A3:EA:83:BA:A5:BC:8B:EE:FD:63:37:63:63:74:B0:DF:0E:AC:8E:D4:13:79:97"
+        ]
+      }
+    }
+  ]

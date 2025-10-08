@@ -1,0 +1,7 @@
+function Notifications(senderDBId, Title, Description) {
+  this.senderDBId = senderDBId; // Number
+  this.Title = Title;
+  this.Description = Description;
+}
+
+exports.Notifications = Notifications;
