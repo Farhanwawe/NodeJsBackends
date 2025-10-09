@@ -4,37 +4,22 @@ const rateLimit = require('express-rate-limit');
 const logger = require('./src/app/logger');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');  // Make sure to require fs
+const fs = require('fs');
+const cookieParser = require('cookie-parser');
+
 const authRoute = require('./API/Routes/routes');
 const adminRoutes = require('./src/vipAdmin/admin');
 const referralRoutes = require('./API/Routes/referralRoutes');
-const cookieParser = require('cookie-parser');
 
 dotEnv.config();
 
 const app = express();
-app.use(cookieParser());
 app.set('trust proxy', true);
 
-// CORS Middleware
+app.use(cookieParser());
 app.use(cors());
-
-// Express JSON Parser
 app.use(express.json());
-app.get('/.well-known/apple-app-site-association', (req, res) => {
-  const filePath = path.join(__dirname, '.well-known', 'apple-app-site-association');
-  try {
-    const jsonContent = fs.readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(jsonContent);
-    res.setHeader('Content-Type', 'application/json');
-    res.status(200).json(parsed);
-  } catch (error) {
-    console.error("Failed to read/parse AASA:", error);
-    res.status(500).json({ error: "AASA file error" });
-  }
-});
 
-// Rate Limiter Middleware
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 200,
@@ -43,49 +28,30 @@ const apiLimiter = rateLimit({
   keyGenerator: (req) => req.ip,
 });
 
-app.use('/auth', apiLimiter);
-
-// Log IP
-app.use((req, res, next) => {
+const ipLogger = (req, res, next) => {
   const clientIp = req.headers['x-forwarded-for'] || req.ip;
-  logger.log(`Resolved Client IP: ${clientIp}`);
+  logger.log(`Client IP: ${clientIp}`);
   next();
+};
+
+app.get('/.well-known/apple-app-site-association', (req, res) => {
+  const filePath = path.join(__dirname, '.well-known', 'apple-app-site-association');
+  try {
+    const jsonContent = fs.readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(jsonContent);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(parsed);
+  } catch (error) {
+    logger.error('Failed to read/parse AASA:', error);
+    res.status(500).json({ error: 'AASA file error' });
+  }
 });
 
-// ✅ Serve assetlinks.json at /.well-known/
 app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
-
-//ios deeplink
-
-// Custom route for deeplink functionality
-// app.get('/deeplink', (req, res) => {
-//   // Path to the deeplink.json file
-//   const filePath = path.join(__dirname, 'deeplink.json');
-
-//   // Read the JSON file
-//   fs.readFile(filePath, 'utf8', (err, data) => {
-//     if (err) {
-//       console.error('Error reading JSON file:', err);
-//       return res.status(500).json({ error: 'Failed to read JSON file' });
-//     }
-
-//     // Parse the JSON file content
-//     let jsonData;
-//     try {
-//       jsonData = JSON.parse(data);
-//     } catch (e) {
-//       console.error('Error parsing JSON:', e);
-//       return res.status(500).json({ error: 'Invalid JSON format' });
-//     }
-
-//     // Send the JSON result back to the user
-//     res.json(jsonData);
-//   });
-// });
-
-// Routes
-app.use('/auth', authRoute);
 app.use('/Assets', express.static(path.join(__dirname, 'Assets')));
+
+app.use(ipLogger);
+app.use('/auth', apiLimiter, authRoute);
 app.use('/admin', adminRoutes);
 app.use('/deeplink', referralRoutes);
 
@@ -93,8 +59,12 @@ app.get('/test-dl', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Start Server
-const PORT = process.env.PORT;
+app.use((err, req, res, next) => {
+  logger.error('Server error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  logger.log(`Server is running on port ${PORT}`);
+  logger.log(`API Server running on port ${PORT}`);
 });
